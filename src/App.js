@@ -22925,12 +22925,20 @@ const ALL_PRODUCTS = [
 
 // ─── CART STORAGE ─────────────────────────────────────────────────────────────
 function useCart() {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("qs_cart") || "[]"); } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("qs_cart", JSON.stringify(cart)); } catch {}
+  }, [cart]);
   const add = (item) =>
     setCart((c) => [...c, { ...item, cartId: Date.now() + Math.random() }]);
   const remove = (cartId) =>
     setCart((c) => c.filter((x) => x.cartId !== cartId));
-  const clear = () => setCart([]);
+  const clear = () => {
+    setCart([]);
+    try { localStorage.removeItem("qs_cart"); } catch {}
+  };
   const total = cart.reduce(
     (s, x) => s + x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0),
     0
@@ -23449,6 +23457,23 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
       status: "pendente",
     };
     saveOrder(order);
+
+    // Enviar encomenda para Google Sheets
+    const itemsText = cart.map((x, i) =>
+      `${i + 1}. ${x.title}${x.size ? " | Tam: " + x.size : ""}${x.personalisation ? " | Nome: " + x.personalisation : ""}${x.patch ? " | Patch ✓" : ""} — €${(x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2)}`
+    ).join(" | ");
+    fetch("https://script.google.com/macros/s/AKfycbyy1JqVx7KFokOwBGWABvvF49HFnSn9R1qk_jfYjUu9YlhlProvpTYaNkUYytrmy_E1DA/exec", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        date: new Date().toLocaleString("pt-PT"),
+        insta: insta.replace("@", ""),
+        items: itemsText,
+        total: total.toFixed(2),
+        note: note || "",
+      }),
+    }).catch(() => {});
+
     setDone(true);
     onCheckout();
   };
@@ -24619,6 +24644,13 @@ function LeaguePage({ league, products, onBack, onOpenProduct }) {
   const [activeTeam, setActiveTeam] = useState("Todos");
   const [activeCat, setActiveCat] = useState("Todos");
   const [search, setSearch] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 700);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const teams = useMemo(() => {
     const ts = [...new Set(products.map((x) => x.tm))]
@@ -24644,183 +24676,169 @@ function LeaguePage({ league, products, onBack, onOpenProduct }) {
     });
   }, [products, activeTeam, activeCat, search]);
 
-  return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Sidebar */}
-      <div
+  const activeFilters = (activeCat !== "Todos" ? 1 : 0) + (activeTeam !== "Todos" ? 1 : 0);
+
+  const SidebarContent = () => (
+    <>
+      <button
+        onClick={onBack}
         style={{
-          width: 220,
-          flexShrink: 0,
-          background: "#0a0a0a",
-          borderRight: "1px solid #1a1a1a",
-          padding: "1rem 0",
-          overflowY: "auto",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
+          display: "flex", alignItems: "center", gap: 8,
+          background: "none", border: "none", color: "#666",
+          cursor: "pointer", padding: "0.5rem 1rem",
+          fontSize: 13, marginBottom: "1rem", width: "100%",
         }}
       >
-        <button
-          onClick={onBack}
+        ← Voltar
+      </button>
+      <div style={{ padding: "0 1rem", marginBottom: "1.5rem" }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>{league.name}</div>
+        <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{products.length} artigos</div>
+      </div>
+      <div style={{ padding: "0 1rem", marginBottom: "1.5rem" }}>
+        <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+          Categoria
+        </div>
+        {cats.map((c) => (
+          <button key={c} onClick={() => { setActiveCat(c); setDrawerOpen(false); }}
+            style={{
+              display: "block", width: "100%", textAlign: "left",
+              background: activeCat === c ? "#006600" : "none", border: "none",
+              borderLeft: activeCat === c ? "3px solid #009900" : "3px solid transparent",
+              color: activeCat === c ? "#fff" : "#888",
+              padding: "8px 12px", fontSize: 13, cursor: "pointer",
+              borderRadius: activeCat === c ? "0 8px 8px 0" : "0",
+              marginBottom: 2, transition: "all 0.15s",
+              fontWeight: activeCat === c ? 700 : 400,
+            }}
+          >
+            {c === "Todos" ? "Todos" : CAT_LABELS[c] || c}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: "0 1rem" }}>
+        <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>
+          Equipa
+        </div>
+        {teams.map((t) => (
+          <button key={t} onClick={() => { setActiveTeam(t); setDrawerOpen(false); }}
+            style={{
+              display: "block", width: "100%", textAlign: "left",
+              background: activeTeam === t ? "#00330040" : "none", border: "none",
+              borderLeft: activeTeam === t ? "3px solid #006600" : "3px solid transparent",
+              color: activeTeam === t ? "#009900" : "#666",
+              padding: "7px 12px", fontSize: 12, cursor: "pointer",
+              marginBottom: 1, transition: "all 0.15s",
+              fontWeight: activeTeam === t ? 700 : 400,
+              borderRadius: activeTeam === t ? "0 6px 6px 0" : "0",
+            }}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+
+      {/* Sidebar — desktop only */}
+      <div style={{
+        width: 220, flexShrink: 0,
+        background: "#0a0a0a", borderRight: "1px solid #1a1a1a",
+        padding: "1rem 0", overflowY: "auto",
+        position: "sticky", top: 0, height: "100vh",
+        display: isMobile ? "none" : "block",
+      }}>
+        <SidebarContent />
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {drawerOpen && (
+        <div
+          onClick={() => setDrawerOpen(false)}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: "none",
-            border: "none",
-            color: "#666",
-            cursor: "pointer",
-            padding: "0.5rem 1rem",
-            fontSize: 13,
-            marginBottom: "1rem",
-            width: "100%",
+            position: "fixed", inset: 0, background: "#000000aa",
+            zIndex: 999,
           }}
-        >
-          ← Voltar
-        </button>
-        <div style={{ padding: "0 1rem", marginBottom: "1.5rem" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>
-            {league.name}
-          </div>
-          <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
-            {products.length} artigos
-          </div>
-        </div>
+        />
+      )}
 
-        {/* Categories */}
-        <div style={{ padding: "0 1rem", marginBottom: "1.5rem" }}>
-          <div
-            style={{
-              fontSize: 10,
-              color: "#444",
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              marginBottom: 8,
-            }}
-          >
-            Categoria
-          </div>
-          {cats.map((c) => (
-            <button
-              key={c}
-              onClick={() => setActiveCat(c)}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                background: activeCat === c ? "#006600" : "none",
-                border: "none",
-                borderLeft:
-                  activeCat === c
-                    ? "3px solid #009900"
-                    : "3px solid transparent",
-                color: activeCat === c ? "#fff" : "#888",
-                padding: "8px 12px",
-                fontSize: 13,
-                cursor: "pointer",
-                borderRadius: activeCat === c ? "0 8px 8px 0" : "0",
-                marginBottom: 2,
-                transition: "all 0.15s",
-                fontWeight: activeCat === c ? 700 : 400,
-              }}
-            >
-              {c === "Todos" ? "Todos" : CAT_LABELS[c] || c}
-            </button>
-          ))}
+      {/* Mobile drawer */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, bottom: 0,
+        width: 280, background: "#0a0a0a",
+        overflowY: "auto", zIndex: 1000,
+        transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 0.25s ease",
+        padding: "1rem 0",
+        boxShadow: drawerOpen ? "4px 0 20px #000" : "none",
+      }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 1rem", marginBottom: 8 }}>
+          <button onClick={() => setDrawerOpen(false)}
+            style={{ background: "none", border: "none", color: "#666", fontSize: 22, cursor: "pointer" }}>
+            ✕
+          </button>
         </div>
-
-        {/* Teams */}
-        <div style={{ padding: "0 1rem" }}>
-          <div
-            style={{
-              fontSize: 10,
-              color: "#444",
-              textTransform: "uppercase",
-              letterSpacing: 2,
-              marginBottom: 8,
-            }}
-          >
-            Equipa
-          </div>
-          {teams.map((t) => (
-            <button
-              key={t}
-              onClick={() => setActiveTeam(t)}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                background: activeTeam === t ? "#00330040" : "none",
-                border: "none",
-                borderLeft:
-                  activeTeam === t
-                    ? "3px solid #006600"
-                    : "3px solid transparent",
-                color: activeTeam === t ? "#009900" : "#666",
-                padding: "7px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-                marginBottom: 1,
-                transition: "all 0.15s",
-                fontWeight: activeTeam === t ? 700 : 400,
-                borderRadius: activeTeam === t ? "0 6px 6px 0" : "0",
-              }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <SidebarContent />
       </div>
 
       {/* Main */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        <div
-          style={{
-            padding: "1.25rem 1.5rem",
-            borderBottom: "1px solid #1a1a1a",
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
+      <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
+        <div style={{
+          padding: "0.75rem 1rem",
+          borderBottom: "1px solid #1a1a1a",
+          display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+        }}>
+          {/* Mobile: back + filter buttons */}
+          <button onClick={onBack}
+            style={{
+              background: "none", border: "1px solid #222", color: "#666",
+              borderRadius: 8, padding: "8px 12px", fontSize: 13, cursor: "pointer",
+              display: isMobile ? "block" : "none",
+            }}>
+            ← Voltar
+          </button>
+          <button onClick={() => setDrawerOpen(true)}
+            style={{
+              background: activeFilters > 0 ? "#006600" : "#111",
+              border: "1px solid #222", color: "#fff",
+              borderRadius: 8, padding: "8px 14px", fontSize: 13,
+              cursor: "pointer", display: isMobile ? "flex" : "none",
+              alignItems: "center", gap: 6,
+            }}>
+            🔽 Filtros {activeFilters > 0 ? `(${activeFilters})` : ""}
+          </button>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar artigo..."
             style={{
-              flex: 1,
-              minWidth: 180,
-              background: "#111",
-              border: "1px solid #222",
-              borderRadius: 8,
-              color: "#fff",
-              padding: "10px 14px",
-              fontSize: 14,
-              outline: "none",
+              flex: 1, minWidth: 120,
+              background: "#111", border: "1px solid #222",
+              borderRadius: 8, color: "#fff",
+              padding: "9px 14px", fontSize: 14, outline: "none",
               boxSizing: "border-box",
             }}
           />
-          <span style={{ fontSize: 13, color: "#555" }}>
+          <span style={{ fontSize: 13, color: "#555", whiteSpace: "nowrap" }}>
             {filtered.length} resultados
           </span>
         </div>
-        <div style={{ padding: "1.25rem 1.5rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))",
-              gap: 14,
-            }}
-          >
+
+        <div style={{ padding: "1rem" }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))",
+            gap: 12,
+          }}>
             {filtered.map((p) => (
               <ProductCard key={p.i} product={p} onOpen={onOpenProduct} />
             ))}
           </div>
           {filtered.length === 0 && (
-            <div
-              style={{ textAlign: "center", padding: "4rem", color: "#444" }}
-            >
+            <div style={{ textAlign: "center", padding: "4rem", color: "#444" }}>
               <div style={{ fontSize: 48, marginBottom: "1rem" }}>😔</div>
               <p>Nenhum artigo encontrado</p>
             </div>
@@ -25939,6 +25957,13 @@ function Homepage({ onSelectLeague }) {
 }
 
 export default function App() {
+  // Fix mobile overflow globally
+  useEffect(() => {
+    document.body.style.overflowX = "hidden";
+    document.documentElement.style.overflowX = "hidden";
+    document.documentElement.style.maxWidth = "100vw";
+  }, []);
+
   const { cart, add, remove, clear, total } = useCart();
   const [view, setView] = useState("home"); // home | league
   const [activeLeague, setActiveLeague] = useState(null);
@@ -25996,8 +26021,9 @@ export default function App() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              gap: 8,
               cursor: "pointer",
+              minWidth: 0,
             }}
             onClick={() => {
               setView("home");
@@ -26010,62 +26036,68 @@ export default function App() {
                   src={SITE_CONFIG.logoUrl}
                   alt="QuinaSports"
                   referrerPolicy="no-referrer"
-                  style={{ height: 40, width: "auto", objectFit: "contain" }}
+                  style={{ height: isMobile ? 32 : 40, width: "auto", objectFit: "contain", flexShrink: 0 }}
                 />
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 18,
+                      fontSize: isMobile ? 15 : 18,
                       fontWeight: 900,
                       letterSpacing: -0.5,
                       lineHeight: 1,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     <span style={{ color: "#009900" }}>Quina</span>
                     <span style={{ color: "#fff" }}>Sports</span>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      color: "#444",
-                      letterSpacing: 2,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    🇵🇹 Portugal
-                  </div>
+                  {!isMobile && (
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: "#444",
+                        letterSpacing: 2,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      🇵🇹 Portugal
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
               <>
-                <span style={{ fontSize: 24 }}>⚽</span>
-                <div>
+                <span style={{ fontSize: isMobile ? 20 : 24 }}>⚽</span>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 18,
+                      fontSize: isMobile ? 15 : 18,
                       fontWeight: 900,
                       letterSpacing: -0.5,
                       lineHeight: 1,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     <span style={{ color: "#009900" }}>Quina</span>
                     <span style={{ color: "#fff" }}>Sports</span>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      color: "#444",
-                      letterSpacing: 2,
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    🇵🇹 Portugal
-                  </div>
+                  {!isMobile && (
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: "#444",
+                        letterSpacing: 2,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      🇵🇹 Portugal
+                    </div>
+                  )}
                 </div>
               </>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button
               onClick={() => setShowAdmin(true)}
               style={{
@@ -26085,23 +26117,24 @@ export default function App() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: isMobile ? 4 : 8,
                 background: cart.length > 0 ? "#006600" : "#111",
                 border: "1px solid",
                 borderColor: cart.length > 0 ? "#009900" : "#222",
                 color: "#fff",
                 borderRadius: 20,
-                padding: "8px 16px",
-                fontSize: 13,
+                padding: isMobile ? "8px 12px" : "8px 16px",
+                fontSize: isMobile ? 12 : 13,
                 fontWeight: 700,
                 cursor: "pointer",
                 transition: "all 0.2s",
+                whiteSpace: "nowrap",
               }}
             >
               🛒{" "}
               {cart.length > 0
-                ? `(${cart.length}) €${total.toFixed(2)}`
-                : "Carrinho"}
+                ? isMobile ? `(${cart.length}) €${total.toFixed(2)}` : `(${cart.length}) €${total.toFixed(2)}`
+                : isMobile ? "" : "Carrinho"}
             </button>
           </div>
         </div>
