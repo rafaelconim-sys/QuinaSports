@@ -23098,7 +23098,9 @@ function ProductModal({ product, onClose, onAddToCart }) {
       size,
       name,
       number,
-      personalisation: !isWindbreaker && personalisation,
+      personalisation: !isWindbreaker && personalisation
+        ? [name, number].filter(Boolean).join(" #") || "Sim"
+        : false,
       patch: !isWindbreaker && patch,
       price: product.p,
     });
@@ -23470,9 +23472,9 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
       tamanho: x.size || "-",
       categoria: CAT_MAP2[x.c] || x.c || "",
       liga: LEAGUE_MAP2[x.l] || x.l || "",
-      personalizacao: typeof x.personalisation === "string" && x.personalisation ? x.personalisation : "",
+      personalizacao: x.personalisation && x.personalisation !== false ? x.personalisation : "",
       patch: x.patch ? "Sim" : "Não",
-      preco: "€" + (x.price + (typeof x.personalisation === "string" && x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
+      preco: "€" + (x.price + (x.personalisation && x.personalisation !== false ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
     }));
     const payload = {
       date: new Date().toLocaleString("pt-PT"),
