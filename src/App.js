@@ -23458,20 +23458,29 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
     };
     saveOrder(order);
 
-    // Enviar encomenda para Google Sheets
-    const itemsText = cart.map((x, i) =>
-      `${i + 1}. ${x.title}${x.size ? " | Tam: " + x.size : ""}${x.personalisation ? " | Nome: " + x.personalisation : ""}${x.patch ? " | Patch ✓" : ""} — €${(x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2)}`
-    ).join(" | ");
-    fetch("https://script.google.com/macros/s/AKfycbyy1JqVx7KFokOwBGWABvvF49HFnSn9R1qk_jfYjUu9YlhlProvpTYaNkUYytrmy_E1DA/exec", {
+    // Enviar encomenda para Google Sheets — uma linha por artigo
+    const SHEETS_URL = "https://script.google.com/macros/s/AKfycbyy1JqVx7KFokOwBGWABvvF49HFnSn9R1qk_jfYjUu9YlhlProvpTYaNkUYytrmy_E1DA/exec";
+    const CAT_MAP = { f: "Versão Adepto", p: "Versão Jogador", r: "Retro", ls: "Manga Longa Adepto", lr: "Manga Longa Retro", w: "Corta Vento", k: "Kids" };
+    const LEAGUE_MAP = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
+    const rows = cart.map((x) => ({
+      date: new Date().toLocaleString("pt-PT"),
+      insta: "@" + insta.replace("@", ""),
+      produto: x.t || "",
+      foto: x.img || "",
+      tamanho: x.size || "",
+      categoria: CAT_MAP[x.c] || x.c || "",
+      liga: LEAGUE_MAP[x.l] || x.l || "",
+      personalizacao: x.personalisation || "",
+      patch: x.patch ? "Sim" : "Não",
+      preco: "€" + (x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
+      nota: note || "",
+      estado: "Pendente",
+      total: "€" + total.toFixed(2),
+    }));
+    fetch(SHEETS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({
-        date: new Date().toLocaleString("pt-PT"),
-        insta: insta.replace("@", ""),
-        items: itemsText,
-        total: total.toFixed(2),
-        note: note || "",
-      }),
+      body: JSON.stringify({ rows }),
     }).catch(() => {});
 
     setDone(true);
