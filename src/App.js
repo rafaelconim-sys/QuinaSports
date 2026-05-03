@@ -23473,17 +23473,19 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
       const preco = "€" + (x.price + (typeof x.personalisation === "string" && x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2);
       return (i+1) + ". " + (x.t||"") + " | Tam: " + (x.size||"-") + " | " + cat + " | " + liga + pers + ptch + " | " + preco + (fotoUrl ? " | Foto: " + fotoUrl : "");
     }).join("\n");
+    const payload = {
+      date: new Date().toLocaleString("pt-PT"),
+      insta: insta.replace("@", ""),
+      items: itemsText,
+      total: total.toFixed(2),
+      note: note || "",
+    };
+    console.log("SHEETS PAYLOAD:", JSON.stringify(payload));
     fetch(SHEETS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({
-        date: new Date().toLocaleString("pt-PT"),
-        insta: insta.replace("@", ""),
-        items: itemsText,
-        total: total.toFixed(2),
-        note: note || "",
-      }),
-    }).catch(() => {});
+      body: JSON.stringify(payload),
+    }).then(r => r.text()).then(t => console.log("SHEETS RESPONSE:", t)).catch(err => console.error("SHEETS ERROR:", err));
 
     setDone(true);
     onCheckout();
