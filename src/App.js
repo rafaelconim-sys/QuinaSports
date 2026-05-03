@@ -23464,28 +23464,28 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
     const LEAGUE_MAP = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
     const CAT_MAP2 = { f: "Versão Adepto", p: "Versão Jogador", r: "Retro", ls: "Manga Longa Adepto", lr: "Manga Longa Retro", w: "Corta Vento", k: "Kids" };
     const LEAGUE_MAP2 = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
-    const itemsText = cart.map((x, i) => {
-      const fotoUrl = x.img ? WORKER + "/?url=" + encodeURIComponent(x.img) : "";
-      const cat = CAT_MAP2[x.c] || x.c || "";
-      const liga = LEAGUE_MAP2[x.l] || x.l || "";
-      const pers = typeof x.personalisation === "string" && x.personalisation ? " | Nome: " + x.personalisation : "";
-      const ptch = x.patch ? " | Patch: Sim" : "";
-      const preco = "€" + (x.price + (typeof x.personalisation === "string" && x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2);
-      return (i+1) + ". " + (x.t||"") + " | Tam: " + (x.size||"-") + " | " + cat + " | " + liga + pers + ptch + " | " + preco + (fotoUrl ? " | Foto: " + fotoUrl : "");
-    }).join("\n");
+    const itemRows = cart.map((x) => ({
+      produto: x.t || "",
+      foto: x.img ? WORKER + "/?url=" + encodeURIComponent(x.img) : "",
+      tamanho: x.size || "-",
+      categoria: CAT_MAP2[x.c] || x.c || "",
+      liga: LEAGUE_MAP2[x.l] || x.l || "",
+      personalizacao: typeof x.personalisation === "string" && x.personalisation ? x.personalisation : "",
+      patch: x.patch ? "Sim" : "Não",
+      preco: "€" + (x.price + (typeof x.personalisation === "string" && x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
+    }));
     const payload = {
       date: new Date().toLocaleString("pt-PT"),
       insta: insta.replace("@", ""),
-      items: itemsText,
       total: total.toFixed(2),
       note: note || "",
+      items: itemRows,
     };
-    console.log("SHEETS PAYLOAD:", JSON.stringify(payload));
     fetch(SHEETS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload),
-    }).then(r => r.text()).then(t => console.log("SHEETS RESPONSE:", t)).catch(err => console.error("SHEETS ERROR:", err));
+    }).then(r => r.text()).catch(() => {});
 
     setDone(true);
     onCheckout();
