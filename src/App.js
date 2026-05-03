@@ -23463,10 +23463,10 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
     const CAT_MAP = { f: "Versão Adepto", p: "Versão Jogador", r: "Retro", ls: "Manga Longa Adepto", lr: "Manga Longa Retro", w: "Corta Vento", k: "Kids" };
     const LEAGUE_MAP = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
     const rows = cart.map((x) => ({
-      date: new Date().toLocaleString("pt-PT"),
-      insta: "@" + insta.replace("@", ""),
+      data: new Date().toLocaleString("pt-PT"),
+      instagram: "@" + insta.replace("@", ""),
       produto: x.t || "",
-      foto: x.img || "",
+      foto: x.img ? WORKER + "/?url=" + encodeURIComponent(x.img) : "",
       tamanho: x.size || "",
       categoria: CAT_MAP[x.c] || x.c || "",
       liga: LEAGUE_MAP[x.l] || x.l || "",
@@ -23475,7 +23475,7 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
       preco: "€" + (x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
       nota: note || "",
       estado: "Pendente",
-      total: "€" + total.toFixed(2),
+      total_encomenda: "€" + total.toFixed(2),
     }));
     fetch(SHEETS_URL, {
       method: "POST",
