@@ -23462,25 +23462,27 @@ function CartModal({ cart, total, onRemove, onClose, onCheckout }) {
     const SHEETS_URL = "https://script.google.com/macros/s/AKfycbyy1JqVx7KFokOwBGWABvvF49HFnSn9R1qk_jfYjUu9YlhlProvpTYaNkUYytrmy_E1DA/exec";
     const CAT_MAP = { f: "Versão Adepto", p: "Versão Jogador", r: "Retro", ls: "Manga Longa Adepto", lr: "Manga Longa Retro", w: "Corta Vento", k: "Kids" };
     const LEAGUE_MAP = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
-    const rows = cart.map((x) => ({
-      data: new Date().toLocaleString("pt-PT"),
-      instagram: "@" + insta.replace("@", ""),
-      produto: x.t || "",
-      foto: x.img ? WORKER + "/?url=" + encodeURIComponent(x.img) : "",
-      tamanho: x.size || "",
-      categoria: CAT_MAP[x.c] || x.c || "",
-      liga: LEAGUE_MAP[x.l] || x.l || "",
-      personalizacao: x.personalisation || "",
-      patch: x.patch ? "Sim" : "Não",
-      preco: "€" + (x.price + (x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2),
-      nota: note || "",
-      estado: "Pendente",
-      total_encomenda: "€" + total.toFixed(2),
-    }));
+    const CAT_MAP2 = { f: "Versão Adepto", p: "Versão Jogador", r: "Retro", ls: "Manga Longa Adepto", lr: "Manga Longa Retro", w: "Corta Vento", k: "Kids" };
+    const LEAGUE_MAP2 = { liga_pt: "Liga Portugal", premier: "Premier League", laliga: "La Liga", seriea: "Serie A", bundesliga: "Bundesliga", ligue1: "Ligue 1", wc: "Mundial 2026", retro: "Retro", windbreaker: "Corta Ventos" };
+    const itemsText = cart.map((x, i) => {
+      const fotoUrl = x.img ? WORKER + "/?url=" + encodeURIComponent(x.img) : "";
+      const cat = CAT_MAP2[x.c] || x.c || "";
+      const liga = LEAGUE_MAP2[x.l] || x.l || "";
+      const pers = typeof x.personalisation === "string" && x.personalisation ? " | Nome: " + x.personalisation : "";
+      const ptch = x.patch ? " | Patch: Sim" : "";
+      const preco = "€" + (x.price + (typeof x.personalisation === "string" && x.personalisation ? 3 : 0) + (x.patch ? 1 : 0)).toFixed(2);
+      return (i+1) + ". " + (x.t||"") + " | Tam: " + (x.size||"-") + " | " + cat + " | " + liga + pers + ptch + " | " + preco + (fotoUrl ? " | Foto: " + fotoUrl : "");
+    }).join("\n");
     fetch(SHEETS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({
+        date: new Date().toLocaleString("pt-PT"),
+        insta: insta.replace("@", ""),
+        items: itemsText,
+        total: total.toFixed(2),
+        note: note || "",
+      }),
     }).catch(() => {});
 
     setDone(true);
