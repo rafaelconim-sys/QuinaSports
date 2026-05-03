@@ -25964,6 +25964,13 @@ export default function App() {
     document.documentElement.style.maxWidth = "100vw";
   }, []);
 
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 700);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const { cart, add, remove, clear, total } = useCart();
   const [view, setView] = useState("home"); // home | league
   const [activeLeague, setActiveLeague] = useState(null);
